@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+
+require 'rbbt-util'
+require 'rbbt/workflow'
+require 'rbbt/util/simpleopt'
+require 'rbbt/util/semaphore'
+
+options = SOPT.get("-wd--workdir* Workdir:-c--cpus* Number of cpus:-h--help Help")
+
+if options[:help]
+  puts SOPT.doc
+  puts <<-EOF
+
+# GenomicTools Update
+
+This tool updates the system by running all the missing jobs in the pipeline.
+For a given `workdir` it finds all uploaded files and calls for them the default pipeline,
+which is enacted by the `all` task. The `all` task should depend on all the workflow tasks
+that need to be ran by default.
+
+  EOF
+  exit 0
+end
+
+Workflow.require_workflow "GenomicTools"
+
+GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG'
+
+cpus = (options[:cpus] || 2).to_i
+
+GenomicTools.nested_workflows.each do |workflow|
+  Log.info "Processing #{ workflow }"
+  samples = GenomicTools.all_workflow_sample_files(workflow).keys
+  Log.info "Samples: #{samples.length}"
+  RbbtSemaphore.fork_each_on_semaphore(samples, cpus) do |sample|
+    workflow.job(:all, sample).run
+  end
+end

@@ -1,0 +1,16 @@
+GenomicTools=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.haml *.sass *.txt *.conf" {
+ workflow.rb
+ lib=lib {
+  utils.rb
+  exome_sequencing.rb
+  cohorts.rb
+  genetics.rb
+ }
+ etc=etc{
+ }
+ share=share{
+  rbbt_commands=rbbt_commands{
+   update
+  }
+ }
+}
