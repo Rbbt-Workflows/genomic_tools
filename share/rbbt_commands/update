@@ -30,7 +30,8 @@ cpus = (options[:cpus] || 2).to_i
 
 GenomicTools.nested_workflows.each do |workflow|
   Log.info "Processing #{ workflow }"
-  samples = GenomicTools.all_workflow_sample_files(workflow).keys
+  #samples = GenomicTools.all_workflow_sample_files(workflow).keys
+  samples = GenomicTools.all_workflow_authoritative_sample_files(workflow).keys
   Log.info "Samples: #{samples.length}"
   RbbtSemaphore.fork_each_on_semaphore(samples, cpus) do |sample|
     workflow.job(:all, sample).run

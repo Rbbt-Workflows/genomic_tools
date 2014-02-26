@@ -14,7 +14,7 @@ module GenomicTools
     end
   end
 
-  def self.all_workflow_sample_files(workflow = ExomeSequencing)
+  def self.all_workflow_authoritative_sample_files(workflow = ExomeSequencing)
     sample_files = {}
     workflow.tasks.each do |task_name,task|
       task_dir = workflow.workdir[task_name]
@@ -24,13 +24,16 @@ module GenomicTools
       job_names.each do |jn| 
         job = workflow.load_name(task_name, jn)
         job_files << job.path << job.info_file << job.files_dir 
-      end.any?
+      end
 
       files = Dir.glob(File.join(task_dir, '*'))
+      info_files = Dir.glob(Step.info_file(File.join(task_dir, '*')))
+      files = files - info_files
+
       Log.debug("Found #{files.length} for #{ workflow } #{ task_name }")
 
       files.delete_if do |file|
-        job_files.include? file
+        job_files.include? File.expand_path(file)
       end
 
       files.each do |file| 
@@ -48,7 +51,7 @@ module GenomicTools
     sample_files
   end
 
-  def self.all_workflow_sample_jobs(workflow = ExomeSequencing)
+  def self.all_workflow_sample_files(workflow = ExomeSequencing)
     sample_jobs = {}
     workflow.tasks.each do |task_name,task|
       workflow.jobs(task_name).each do |sample|

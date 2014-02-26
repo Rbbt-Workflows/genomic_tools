@@ -207,6 +207,7 @@ module GenomicTools::ExomeSequencing
 
     tsv = nil
     job.files.each do |file|
+      log "Attaching #{ file } to #{Misc.fingerprint tsv} from #{job.file(file).find}"
       Open.write(self.file(file), job.file(file).open)
       if tsv.nil?
         tsv = job.file(file).tsv
@@ -218,11 +219,19 @@ module GenomicTools::ExomeSequencing
     tsv
   end
 
+  dep :MutatedPrincipalIsoforms
+  task :AffectedComplexInterfaces => :tsv do 
+    Workflow.require_workflow "Structure"
+    mpis = step(:MutatedPrincipalIsoforms).load.values.compact.flatten
+    job = Structure.job(:mutated_isoform_interface_residues, name, :mutated_isoforms => mpis)
+    job.run
+  end
+
   task :ChannelCounts => :tsv do
     raise "NOT IMPLEMENTED"
   end
 
-  dep :MutatedPrincipalIsoforms, :AffectedDomains, :AffectedGenes, :RelevantMutations, :VariantConsequence, :AffectedProteinFeatures
+  dep :MutatedPrincipalIsoforms, :AffectedDomains, :AffectedGenes, :RelevantMutations, :VariantConsequence, :AffectedProteinFeatures, :AffectedComplexInterfaces
   task :all => :string do
     "DONE"
   end

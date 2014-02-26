@@ -11,6 +11,9 @@ GenomicTools=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.
  share=share{
   rbbt_commands=rbbt_commands{
    update
+   samples
+   files
+   jobs
   }
  }
 }

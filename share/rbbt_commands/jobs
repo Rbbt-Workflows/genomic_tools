@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+
+require 'rbbt-util'
+require 'rbbt/workflow'
+require 'rbbt/util/simpleopt'
+require 'rbbt/util/semaphore'
+
+options = SOPT.get("-wd--workdir* Workdir:-h--help Help")
+
+if options[:help]
+  puts SOPT.doc
+  puts <<-EOF
+
+# GenomicTools Update
+
+Explore a working directory to find authoritative files (as oposed to computed job results)
+
+  EOF
+  exit 0
+end
+
+Workflow.require_workflow "GenomicTools"
+
+GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG'
+
+
+GenomicTools.nested_workflows.each do |workflow|
+
+  puts "# Jobs in #{ workflow }"
+  puts
+  samples = GenomicTools.all_workflow_sample_files(workflow)
+  samples.each do |sample,tasks|
+    puts "* " << Log.color(:red, sample) << ": "
+    tasks.each do |taskname|
+      puts "  #{ taskname }"
+    end
+
+  end
+  puts
+end
