@@ -220,8 +220,28 @@ module GenomicTools::ExomeSequencing
   end
 
   dep :MutatedPrincipalIsoforms
-  task :AffectedComplexInterfaces => :tsv do 
+  task :CloseProteinFeatures => :tsv do 
     Workflow.require_workflow "Structure"
+    mpis = step(:MutatedPrincipalIsoforms).load.values.compact.flatten
+    job = Structure.job(:mutated_isoform_neighbour_annotation, name, :mutated_isoforms => mpis)
+    job.run
+
+    tsv = nil
+    job.files.each do |file|
+      log "Attaching #{ file } to #{Misc.fingerprint tsv} from #{job.file(file).find}"
+      Open.write(self.file(file), job.file(file).open)
+      if tsv.nil?
+        tsv = job.file(file).tsv
+      else
+        tsv.attach job.file(file).tsv
+      end
+    end
+
+    tsv
+  end
+
+  dep :MutatedPrincipalIsoforms
+  task :AffectedComplexInterfaces => :tsv do 
     mpis = step(:MutatedPrincipalIsoforms).load.values.compact.flatten
     job = Structure.job(:mutated_isoform_interface_residues, name, :mutated_isoforms => mpis)
     job.run
@@ -231,7 +251,7 @@ module GenomicTools::ExomeSequencing
     raise "NOT IMPLEMENTED"
   end
 
-  dep :MutatedPrincipalIsoforms, :AffectedDomains, :AffectedGenes, :RelevantMutations, :VariantConsequence, :AffectedProteinFeatures, :AffectedComplexInterfaces
+  dep :MutatedPrincipalIsoforms, :AffectedDomains, :AffectedGenes, :RelevantMutations, :VariantConsequence, :CloseProteinFeatures, :AffectedProteinFeatures, :AffectedComplexInterfaces
   task :all => :string do
     "DONE"
   end

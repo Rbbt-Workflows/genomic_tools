@@ -24,16 +24,25 @@ end
 
 Workflow.require_workflow "GenomicTools"
 
-GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG'
+GenomicTools.workdir = File.expand_path(options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG')
 
 cpus = (options[:cpus] || 2).to_i
 
+require 'parallel'
 GenomicTools.nested_workflows.each do |workflow|
-  Log.info "Processing #{ workflow }"
-  #samples = GenomicTools.all_workflow_sample_files(workflow).keys
+  Log.info Log.color(:magenta, "Processing #{ workflow }")
   samples = GenomicTools.all_workflow_authoritative_sample_files(workflow).keys
-  Log.info "Samples: #{samples.length}"
-  RbbtSemaphore.fork_each_on_semaphore(samples, cpus) do |sample|
-    workflow.job(:all, sample).run
+  Log.info Log.color(:magenta, "Samples: #{samples.length}")
+
+  Parallel.each(samples, :in_processes => cpus) do |sample|
+    Log.info Log.color(:blue, "Processing " << sample)
+    begin
+      job = workflow.job(:all, sample)
+      job.run
+      Log.info Log.color(:green, "DONE " << sample)
+    rescue
+      Log.info Log.color(:red, "ERROR " << sample)
+      Log.exception $!
+    end
   end
 end

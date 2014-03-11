@@ -2,6 +2,7 @@ GenomicTools=/$PWD filter="*.config *.rb *.rake Rakefile *.rdoc *.R *.sh *.js *.
  workflow.rb
  lib=lib {
   utils.rb
+
   exome_sequencing.rb
   cohorts.rb
   genetics.rb

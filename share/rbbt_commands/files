@@ -26,11 +26,11 @@ GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_po
 
 GenomicTools.nested_workflows.each do |workflow|
 
-  puts "# Autoritative sample files in #{ workflow }"
+  puts Log.color :magenta, "# Autoritative sample files in #{ workflow }"
   puts
   samples = GenomicTools.all_workflow_authoritative_sample_files(workflow)
   samples.each do |sample,tasks|
-    puts "* " << Log.color(:red, sample) << ": "
+    puts "* " << Log.color(:blue, sample)
     tasks.each do |taskname|
       puts "  #{ taskname }"
     end

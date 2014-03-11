@@ -1,6 +1,7 @@
 require 'rbbt/workflow'
 
 Workflow.require_workflow "Genomics"
+Workflow.require_workflow "Structure"
 Workflow.require_workflow "Appris"
 
 module GenomicTools

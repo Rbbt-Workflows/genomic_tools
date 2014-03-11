@@ -26,13 +26,23 @@ GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_po
 
 GenomicTools.nested_workflows.each do |workflow|
 
-  puts "# Jobs in #{ workflow }"
+  puts Log.color :magenta, "# Jobs in #{ workflow }"
   puts
+  Log.debug Log.color(:magenta, "Finding all sample files for #{workflow.to_s}")
   samples = GenomicTools.all_workflow_sample_files(workflow)
+  Log.debug Log.color(:magenta, "Processing #{samples.length} samples")
   samples.each do |sample,tasks|
-    puts "* " << Log.color(:red, sample) << ": "
+    puts "* " << Log.color(:blue, sample)
     tasks.each do |taskname|
-      puts "  #{ taskname }"
+      job = workflow.load_name taskname, sample
+      if job.path.exists?
+        status = :done
+      else
+        status = job.status || "waiting"
+      end
+      status = Log.color :red, status.to_s if status == :error or status == :aborted
+      status = Log.color :green, status.to_s if status == :done
+      puts "  #{ taskname } -- #{status}"
     end
 
   end
