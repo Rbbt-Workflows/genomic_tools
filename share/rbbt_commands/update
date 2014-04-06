@@ -5,7 +5,7 @@ require 'rbbt/workflow'
 require 'rbbt/util/simpleopt'
 require 'rbbt/util/semaphore'
 
-options = SOPT.get("-wd--workdir* Workdir:-c--cpus* Number of cpus:-h--help Help")
+options = SOPT.get("-wd--workdir* Workdir:-h--help Help:-r--recursive Clean jobs recursively")
 
 if options[:help]
   puts SOPT.doc
@@ -26,23 +26,35 @@ Workflow.require_workflow "GenomicTools"
 
 GenomicTools.workdir = File.expand_path(options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG')
 
-cpus = (options[:cpus] || 2).to_i
+$cpus ||= SOPT.get("--cpus*")[:cpus]
+$cpus = $cpus.to_i if $cpus
 
-require 'parallel'
 GenomicTools.nested_workflows.each do |workflow|
   Log.info Log.color(:magenta, "Processing #{ workflow }")
+  old_s = Log.severity
+  Log.severity = 10
   samples = GenomicTools.all_workflow_authoritative_sample_files(workflow).keys
+  Log.severity = old_s
   Log.info Log.color(:magenta, "Samples: #{samples.length}")
 
-  Parallel.each(samples, :in_processes => cpus) do |sample|
-    Log.info Log.color(:blue, "Processing " << sample)
+  TSV.traverse samples, :cpus => $cpus do |sample|
+    puts Log.color(:blue, "PROCESSING " << sample)
+    job = workflow.job(:all, sample)
     begin
-      job = workflow.job(:all, sample)
-      job.run
-      Log.info Log.color(:green, "DONE " << sample)
+      if options[:recursive]
+        iii :recursive
+        job.recursive_clean
+      else
+        job.clean
+      end
+      res = job.run
+      job.join
+      puts Log.color(:green, "DONE #{sample} #{res.nil? ? nil : res.length}" )
     rescue
-      Log.info Log.color(:red, "ERROR " << sample)
       Log.exception $!
+      job.abort
+      job.join
+      puts Log.color(:red, "ERROR " << sample)
     end
   end
 end
