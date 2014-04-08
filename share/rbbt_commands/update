@@ -39,22 +39,25 @@ GenomicTools.nested_workflows.each do |workflow|
 
   TSV.traverse samples, :cpus => $cpus do |sample|
     puts Log.color(:blue, "PROCESSING " << sample)
+    start = Time.now
     job = workflow.job(:all, sample)
     begin
       if options[:recursive]
-        iii :recursive
         job.recursive_clean
       else
         job.clean
       end
       res = job.run
       job.join
-      puts Log.color(:green, "DONE #{sample} #{res.nil? ? nil : res.length}" )
+      puts Log.color(:green, "DONE #{sample} -- #{(Time.now - start).to_i} seconds" )
     rescue
       Log.exception $!
       job.abort
       job.join
       puts Log.color(:red, "ERROR " << sample)
+      exit
+    rescue Aborted
+      next
     end
   end
 end

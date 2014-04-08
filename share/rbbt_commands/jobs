@@ -5,7 +5,7 @@ require 'rbbt/workflow'
 require 'rbbt/util/simpleopt'
 require 'rbbt/util/semaphore'
 
-options = SOPT.get("-wd--workdir* Workdir:-h--help Help")
+options = SOPT.get("-wd--workdir* Workdir:-h--help Help:-s--sample* Check a single sample")
 
 if options[:help]
   puts SOPT.doc
@@ -19,9 +19,11 @@ Explore a working directory to find authoritative files (as oposed to computed j
   exit 0
 end
 
+one_sample = options[:sample]
+
 Workflow.require_workflow "GenomicTools"
 
-GenomicTools.workdir = options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG'
+GenomicTools.workdir = File.expand_path(options[:workdir] || '/home/mvazquezg/git/sandbox/data_portal/CNAG')
 
 
 GenomicTools.nested_workflows.each do |workflow|
@@ -32,17 +34,22 @@ GenomicTools.nested_workflows.each do |workflow|
   samples = GenomicTools.all_workflow_sample_files(workflow)
   Log.debug Log.color(:magenta, "Processing #{samples.length} samples")
   samples.each do |sample,tasks|
+    next if one_sample and not sample == one_sample
     puts "* " << Log.color(:blue, sample)
     tasks.each do |taskname|
-      job = workflow.load_name taskname, sample
-      if job.path.exists?
-        status = :done
-      else
-        status = job.status || "waiting"
+      begin
+        job = workflow.load_name taskname, sample
+        if job.path.exists?
+          status = :done
+        else
+          status = job.info[:status] || "waiting"
+        end
+      rescue
+        status = :info_file_problem
       end
-      status = Log.color :red, status.to_s if status == :error or status == :aborted
+      status = Log.color :red, status.to_s if status.to_sym == :error or status.to_sym == :aborted
       status = Log.color :green, status.to_s if status == :done
-      puts "  #{ taskname } -- #{status}"
+      puts "  #{ taskname } #{status} -- #{Log.color :blue, job.path} "
     end
 
   end

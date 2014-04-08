@@ -46,11 +46,11 @@ module GenomicTools::ExomeSequencing
   end
 
   dep do |jobname,options|
-    genomic_mutations_job = GenomicTools::ExomeSequencing.job(:genomic_mutations, jobname, options).run true
+    genomic_mutations_job = GenomicTools::ExomeSequencing.job(:genomic_mutations, jobname, options)
+    genomic_mutations_job.run
 
     job = Sequence.job(:mutated_isoforms, jobname, 
                  options.merge(:organism => genomic_mutations_job.organism, :mutations => genomic_mutations_job))
-
   end
   task :isoforms => :array do 
     TSV.traverse step(:mutated_isoforms), :into => :stream  do |k,mis|
@@ -108,7 +108,10 @@ module GenomicTools::ExomeSequencing
   end
   
   dep do |jobname,options|
-    principal_isoforms = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options).run
+    job = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options)
+    principal_isoforms = job.run
+    job.join
+
     options = options.merge :mutated_isoforms => principal_isoforms
     Structure.job(:variant_interfaces, jobname, options)
   end
@@ -122,11 +125,6 @@ module GenomicTools::ExomeSequencing
     dep dep_name
   end
   task :all => :string do
-    #step(:interfaces).join
-    #step(:affected_genes).join
-    #annotation_tasks.each do |dep_name|
-    #  step(dep_name).join
-    #end
     "DONE"
   end
 end
