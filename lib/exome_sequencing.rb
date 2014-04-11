@@ -23,7 +23,7 @@ module GenomicTools::ExomeSequencing
   end
 
   desc "This is not implemented yet. Should use Miriams RuBioSeq"
-  dep :BED
+  #dep :BED
   extension :vcf
   task :VCF => :text do
     raise "Cannot produce VCF from BED just yet"
@@ -32,40 +32,33 @@ module GenomicTools::ExomeSequencing
   desc "Reads the VCF file and filters the variants according to the specified criteria. Currently only a quality threshold."
   dep :VCF 
   input :threshold, :integer, "Quality threshold", 200
-  task :genomic_mutations => :array do |threshold|
-    vcf_file = step(:VCF).path
-    stream = GenomicMutation::VCF.open_stream(vcf_file.open)
-
-    mutations = []
-    while line = stream.gets
-      next if line[0] == "#"
-      mutation, _id, quality = line.split("\t")
-      mutations << mutation if quality.to_f > threshold
-    end
-    mutations
+  task :mutations => :array do |threshold|
+    step(:VCF).join
+    mis = Sequence.job(:genomic_mutations, name, :vcf_file => step(:VCF).path, :threshold => threshold).run 
+    mis
   end
 
-  dep do |jobname,options|
-    genomic_mutations_job = GenomicTools::ExomeSequencing.job(:genomic_mutations, jobname, options)
-    genomic_mutations_job.run
-
-    job = Sequence.job(:mutated_isoforms, jobname, 
-                 options.merge(:organism => genomic_mutations_job.organism, :mutations => genomic_mutations_job))
-  end
+  dep :mutations
   task :isoforms => :array do 
-    TSV.traverse step(:mutated_isoforms), :into => :stream  do |k,mis|
-      mis * "\n"
+    job = Sequence.job(:mutated_isoforms, name, :mutations => step(:mutations).load)
+    job.run
+    all_mis = []
+    TSV.traverse job  do |k,mis|
+      next if mis.nil? or mis.empty?
+      all_mis.concat mis.flatten 
     end
+    all_mis
   end
 
   dep :isoforms
   task :principal_isoforms => :array do 
     principal_isoforms = self.appris_principal_isoforms
-    TSV.traverse step(:isoforms), :type => :array, :into => :stream do |mi|
+    s = TSV.traverse step(:isoforms), :type => :array, :into => :stream do |mi|
       protein, _sep, change = mi.partition ":"
       next unless principal_isoforms.include? protein
       mi
     end
+    s.read.split("\n")
   end
 
   dep :principal_isoforms
@@ -84,8 +77,11 @@ module GenomicTools::ExomeSequencing
     task_name = task_name.to_sym
 
     dep do |jobname,options|
-      principal_isoforms = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options).run
-      options = options.merge :mutated_isoforms => principal_isoforms, :database => database
+      principal_isoforms_job = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options)
+      if not principal_isoforms_job.done?
+        principal_isoforms_job.run 
+      end
+      options = options.merge :mutated_isoforms => principal_isoforms_job, :database => database
       Structure.job(:annotated_variants, jobname, options)
     end
     task task_name => :tsv do 
@@ -97,8 +93,11 @@ module GenomicTools::ExomeSequencing
     task_name = task_name.to_sym
 
     dep do |jobname,options|
-      principal_isoforms = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options).run
-      options = options.merge :mutated_isoforms => principal_isoforms, :database => database
+      principal_isoforms_job = GenomicTools::ExomeSequencing.job(:principal_isoforms, jobname, options)
+      if not principal_isoforms_job.done?
+        principal_isoforms_job.run 
+      end
+      options = options.merge :mutated_isoforms => principal_isoforms_job, :database => database
       Structure.job(:annotated_variant_neighbours, jobname, options)
     end
     task task_name => :tsv do 
@@ -126,5 +125,24 @@ module GenomicTools::ExomeSequencing
   end
   task :all => :string do
     "DONE"
+  end
+
+  dep :VCF
+  dep :isoforms
+  task :enhanced_VCF => :tsv do
+    mutated_isoforms = step(:isoforms).step(:mutated_isoforms).load
+
+    TSV.traverse step(:VCF), :type => :array, :into => :stream do |line|
+      next if line =~/^#/
+      chr, pos, _id, ref, alt = line.split("\t")
+      chr.sub!(/^chr/,'')
+
+      position, alt = Misc.correct_vcf_mutation(pos.to_i, ref, alt)
+      mutation = [chr, position, alt ] * ":"
+
+      isoforms = mutated_isoforms[mutation]
+      isoforms = [] if isoforms.nil?
+      line << "\t" << isoforms * "|"
+    end
   end
 end

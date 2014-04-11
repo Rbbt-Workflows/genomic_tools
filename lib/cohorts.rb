@@ -1,5 +1,5 @@
 
-Workflow.require_workflow "Enrichment"
+#Workflow.require_workflow "Enrichment"
 module GenomicTools::Cohorts
   extend Workflow
 
