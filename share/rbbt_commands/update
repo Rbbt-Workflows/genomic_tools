@@ -37,26 +37,26 @@ GenomicTools.nested_workflows.each do |workflow|
   Log.severity = old_s
   Log.info Log.color(:magenta, "Samples: #{samples.length}")
 
-  TSV.traverse samples, :cpus => $cpus do |sample|
+  done = []
+  TSV.traverse samples, :cpus => 10, :into => done do |sample|
     puts Log.color(:blue, "PROCESSING " << sample)
     start = Time.now
-    job = workflow.job(:all, sample)
+    job = workflow.job(:annotated_variants, sample)
     begin
       if options[:recursive]
         job.recursive_clean
       else
         job.clean
       end
-      res = job.run
-      job.join
+      res = job.run true
       puts Log.color(:green, "DONE #{sample} -- #{(Time.now - start).to_i} seconds" )
-    rescue
+      job.join
+      sample
+    rescue Exception
       Log.exception $!
       job.abort
-      job.join
       puts Log.color(:red, "ERROR " << sample)
-      exit
-    rescue Aborted
+      #raise $!
       next
     end
   end
